@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Haptic Canvas 4×4 – Interactive Arduino Assistive Display</title>
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --card-bg: #131c2e;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --led-off: #172033;
+      --led-off-border: #334155;
+      --led-off-text: #64748b;
+      
+      /* LED Theme Colors (Default: Emerald Green) */
+      --led-color: #22c55e;
+      --led-glow: rgba(34, 197, 94, 0.65);
+      --led-inner: #86efac;
+      --led-text: #052e16;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --radius: 12px;
+    }
+
+    [data-theme="cyan"] {
+      --led-color: #06b6d4;
+      --led-glow: rgba(6, 182, 212, 0.7);
+      --led-inner: #a5f3fc;
+      --led-text: #083344;
+    }
+
+    [data-theme="amber"] {
+      --led-color: #f59e0b;
+      --led-glow: rgba(245, 158, 11, 0.7);
+      --led-inner: #fde68a;
+      --led-text: #451a03;
+    }
+
+    [data-theme="red"] {
+      --led-color: #ef4444;
+      --led-glow: rgba(239, 68, 68, 0.7);
+      --led-inner: #fca5a5;
+      --led-text: #450a0a;
+    }
+
+    [data-theme="purple"] {
+      --led-color: #a855f7;
+      --led-glow: rgba(168, 85, 247, 0.7);
+      --led-inner: #e9d5ff;
+      --led-text: #3b0764;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px 24px 60px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 20px;
+    }
+    .brand-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(59, 130, 246, 0.18);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      font-weight: 600;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Connection Banner */
+    .connection-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.2);
+    }
+    .dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+    .dot.busy {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+    }
+    .dot.error {
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+    }
+
+    /* Alert / Warning Boxes */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fbbf24;
+    }
+
+    /* Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 410px;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 980px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Tabs */
+    .tabs-nav {
+      display: flex;
+      gap: 6px;
+      background: #0f172a;
+      padding: 6px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      flex: 1;
+      min-width: 110px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .tab-btn.active {
+      color: #fff;
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Buttons & Inputs */
+    button, input, select, textarea {
+      font-family: inherit;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 15px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s, opacity 0.15s;
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+    .btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #1e293b;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #334155;
+    }
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) {
+      background: #059669;
+    }
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #b91c1c;
+    }
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* 4x4 LED Physical Display Unit */
+    .display-card {
+      background: #0d131f;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+    .led-matrix-wrapper {
+      background: #080c14;
+      border: 2px solid #1e293b;
+      border-radius: 16px;
+      padding: 18px;
+      position: relative;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+    }
+    .grid-4x4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      aspect-ratio: 1;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+    .led-cell {
+      position: relative;
+      background: var(--led-off);
+      border: 2px solid var(--led-off-border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease-out;
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+    .led-cell:hover {
+      border-color: #64748b;
+      transform: translateY(-1px);
+    }
+    .led-light-bulb {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .led-cell.on {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: var(--led-color);
+    }
+    .led-cell.on .led-light-bulb {
+      background: radial-gradient(circle at 35% 35%, var(--led-inner) 0%, var(--led-color) 70%, #15803d 100%);
+      box-shadow: 0 0 16px 4px var(--led-glow), inset 0 1px 3px rgba(255,255,255,0.7);
+      border-color: var(--led-inner);
+    }
+    .led-cell .cell-meta {
+      margin-top: 5px;
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 6px;
+      font-size: 10px;
+      color: var(--led-off-text);
+      font-weight: 600;
+      font-family: ui-monospace, monospace;
+    }
+    .led-cell.on .cell-meta {
+      color: var(--led-color);
+    }
+
+    /* Pattern Readouts */
+    .pattern-box {
+      margin-top: 16px;
+      background: #080c14;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+    }
+    .pattern-header {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .bit-string {
+      color: #38bdf8;
+      font-size: 15px;
+      letter-spacing: 2px;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    /* Canvas Studio (Pin-accurate interactive canvas) */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      touch-action: none;
+      user-select: none;
+    }
+    #drawCanvas {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      cursor: crosshair;
+    }
+    .canvas-overlay-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      pointer-events: none;
+    }
+    .grid-guide-cell {
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e3a8a;
+      user-select: none;
+      font-family: ui-monospace, monospace;
+      transition: background 0.15s, color 0.15s;
+    }
+    .grid-guide-cell .cell-pin-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .grid-guide-cell .cell-status-tag {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      align-self: flex-end;
+      opacity: 0.7;
+    }
+    .grid-guide-cell.active-cell {
+      background: rgba(34, 197, 94, 0.22);
+      border-color: rgba(34, 197, 94, 0.8);
+      color: #065f46;
+    }
+    .grid-guide-cell.active-cell .cell-status-tag {
+      background: #059669;
+      color: #ffffff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      opacity: 1;
+    }
+
+    /* Controls Bar */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    select, input[type="number"], input[type="text"] {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    /* Character & Braille Gallery */
+    .char-input-hero {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .char-input-large {
+      width: 72px;
+      height: 72px;
+      text-align: center;
+      font-size: 44px;
+      font-weight: 800;
+      background: #0f172a;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      color: #fff;
+    }
+    .glyph-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 10px;
+      background: #090e17;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      margin-top: 12px;
+    }
+    .glyph-chip {
+      width: 32px;
+      height: 32px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s;
+    }
+    .glyph-chip:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      transform: scale(1.1);
+    }
+    .glyph-chip.active {
+      background: var(--accent);
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    /* Document Reader */
+    .reader-scrubber {
+      background: #090e17;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 80px;
+      max-height: 160px;
+      overflow-y: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 16px;
+      letter-spacing: 2px;
+      line-height: 1.8;
+      margin: 14px 0;
+    }
+    .scrubber-char {
+      display: inline-block;
+      padding: 1px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: background 0.1s, color 0.1s;
+    }
+    .scrubber-char:hover {
+      background: #334155;
+      color: #fff;
+    }
+    .scrubber-char.passed {
+      color: var(--text-dim);
+    }
+    .scrubber-char.current {
+      background: var(--led-color);
+      color: var(--led-text);
+      font-weight: 800;
+      box-shadow: 0 0 10px var(--led-glow);
+      transform: scale(1.2);
+    }
+    .reader-hero-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      border: 1px solid var(--card-border);
+    }
+    .reader-big-char {
+      font-size: 64px;
+      font-weight: 900;
+      color: #fff;
+      min-width: 90px;
+      text-align: center;
+      line-height: 1;
+    }
+    .progress-bar-container {
+      height: 8px;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.2s linear;
+    }
+
+    /* Serial Monitor */
+    .terminal-window {
+      background: #06090e;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      height: 220px;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .terminal-line {
+      display: flex;
+      gap: 8px;
+      word-break: break-all;
+    }
+    .term-time { color: #64748b; font-size: 11px; }
+    .term-tx { color: #4ade80; }
+    .term-rx { color: #38bdf8; }
+    .term-err { color: #f87171; }
+    .term-info { color: #fbbf24; }
+
+    /* Switch / Toggle */
+    .switch-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155;
+      transition: .2s;
+      border-radius: 22px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    /* Hardware Pin Legend Table */
+    .pin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .pin-table th, .pin-table td {
+      border: 1px solid #1e293b;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    .pin-table th {
+      background: #0f172a;
+      color: var(--text-muted);
+    }
+    .pin-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #1e293b;
+      font-weight: 700;
+      font-family: monospace;
+      color: #38bdf8;
+    }
+
+    /* Helper styles */
+    .text-sm { font-size: 12px; }
+    .text-muted { color: var(--text-muted); }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Top Navigation & Title -->
+  <header>
+    <div>
+      <div class="brand-title">
+        <span>⚡ Haptic Canvas 4×4</span>
+        <span class="badge">Direct Pin-Accurate Edition</span>
+      </div>
+      <p class="text-sm text-muted" style="margin-top: 4px;">
+        Draw or click directly on any cell to light up its corresponding Arduino pin.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <!-- LED Theme Color Selector -->
+      <label class="text-sm text-muted" style="display:flex; align-items:center; gap:6px;">
+        LED Glow:
+        <select id="themeSelect">
+          <option value="green" selected>Emerald Green</option>
+          <option value="cyan">Cyber Cyan</option>
+          <option value="amber">Amber Haptic</option>
+          <option value="red">Ruby Red</option>
+          <option value="purple">Neon Purple</option>
+        </select>
+      </label>
+
+      <!-- Simulation Mode Toggle -->
+      <label class="switch-container" title="Enables UI testing and virtual LED updates without physical hardware">
+        <span class="switch">
+          <input type="checkbox" id="simModeCheckbox">
+          <span class="slider"></span>
+        </span>
+        <span class="text-sm">Virtual Simulation Mode</span>
+      </label>
+    </div>
+  </header>
+
+  <!-- Protocol Check / Localhost Notice -->
+  <div id="protocolAlert" class="alert alert-warning" style="display:none;">
+    <span>⚠️ <strong>Security Notice:</strong> You opened this file via <code>file://</code>. Chrome/Edge security blocks the Web Serial API on direct file URLs. Launch with <code>start_server.bat</code> or run <code>http://localhost:8000</code>.</span>
+  </div>
+
+  <!-- Connection Status Bar -->
+  <div class="connection-banner">
+    <div class="status-indicator">
+      <div id="statusDot" class="dot"></div>
+      <div>
+        <div id="statusText" style="font-weight:600;">Arduino Not Connected</div>
+        <div id="statusSubtext" class="text-sm text-muted">Ready to connect via USB Serial (9600 baud)</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <select id="baudSelect" title="Serial Baud Rate" style="height: 36px;">
+        <option value="9600" selected>9600 Baud (Default)</option>
+        <option value="19200">19200 Baud</option>
+        <option value="57600">57600 Baud</option>
+        <option value="115200">115200 Baud</option>
+      </select>
+      <button id="connectBtn" class="btn btn-success">🔌 Connect Arduino</button>
+      <button id="disconnectBtn" class="btn btn-danger" disabled>Disconnect</button>
+      <button id="pingBtn" class="btn btn-secondary" title="Send PING packet to test communication" disabled>Ping</button>
+    </div>
+  </div>
+
+  <!-- Main Work Area (Split Grid) -->
+  <div class="main-grid">
+
+    <!-- Left Column: Multi-tab Input Studio -->
+    <div class="studio-column">
+      <!-- Tabs Navigation -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-draw">✏️ Draw Studio</button>
+        <button class="tab-btn" data-tab="tab-char">🔤 Character & Braille</button>
+        <button class="tab-btn" data-tab="tab-reader">📄 Document Reader</button>
+        <button class="tab-btn" data-tab="tab-diag">🛠️ Hardware Diagnostic</button>
+        <button class="tab-btn" data-tab="tab-serial">📡 Serial Terminal</button>
+      </div>
+
+      <!-- Tab 1: Draw Studio -->
+      <div id="tab-draw" class="tab-content active">
+        <div class="card">
+          <div class="card-title">
+            <span>Direct Pin Canvas (Click or Draw to Activate)</span>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="badge" style="background:rgba(34,197,94,0.15); color:#4ade80; border-color:rgba(34,197,94,0.4);">
+                Direct Cell Mapping Active
+              </span>
+            </div>
+          </div>
+
+          <p class="text-sm text-muted" style="margin-bottom:12px;">
+            Touch, click, or draw across any cell below. The corresponding pin (<strong>D2..A3</strong>) illuminates immediately on the Arduino.
+          </p>
+
+          <div class="canvas-container">
+            <canvas id="drawCanvas" width="600" height="600"></canvas>
+            <div id="overlayGrid" class="canvas-overlay-grid"></div>
+          </div>
+
+          <div class="controls-row">
+            <div class="form-group">
+              <label>Drawing Tool</label>
+              <div style="display:flex; gap:6px;">
+                <button id="penToolBtn" class="btn btn-sm btn-secondary active">✏️ Pen (Paint ON)</button>
+                <button id="eraserToolBtn" class="btn btn-sm btn-secondary">🧹 Eraser (Turn OFF)</button>
+              </div>
+            </div>
+
+            <div class="form-group" style="flex:1; min-width:140px;">
+              <label>Pen Size (<span id="penSizeVal">36</span>px)</label>
+              <input type="range" id="penSizeSlider" min="16" max="64" value="36">
+            </div>
+
+            <div style="display:flex; gap:8px; align-self:flex-end;">
+              <button id="clearCanvasBtn" class="btn btn-secondary">🗑️ Clear Canvas</button>
+            </div>
+          </div>
+
+          <div class="btn-group" style="margin-top:14px;">
+            <span class="text-sm text-muted" style="align-self:center; font-weight:600;">Shapes (Exact Pin Patterns):</span>
+            <button class="btn btn-sm btn-secondary preset-shape" data-shape="triangle">Triangle</button>
+            <button class="btn btn-sm btn-secondary preset-shape" data-shape="square">Square</button>
+            <button class="btn btn-sm btn-secondary preset-shape" data-shape="circle">Circle</button>
+            <button class="btn btn-sm btn-secondary preset-shape" data-shape="cross">Plus (+)</button>
+            <button class="btn btn-sm btn-secondary preset-shape" data-shape="diagonal">Diagonal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Character & Braille Studio -->
+      <div id="tab-char" class="tab-content">
+        <div class="card">
+          <div class="card-title">
+            <span>Character & Braille Tactile Converter</span>
+            <div style="display:flex; gap:8px;">
+              <button id="fontModeGlyph" class="btn btn-sm active">4×4 Pixel Font</button>
+              <button id="fontModeBraille" class="btn btn-sm btn-secondary">Tactile Braille (Grade 1)</button>
+            </div>
+          </div>
+
+          <div class="char-input-hero">
+            <input type="text" id="directCharInput" class="char-input-large" maxlength="1" value="A">
+            <div>
+              <div style="font-weight:700; font-size:18px;" id="charTitle">Glyph 'A'</div>
+              <div class="text-sm text-muted" id="charDesc">
+                Press any key on your keyboard or select from the dictionary below.
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="text-sm text-muted" style="font-weight:600; margin-bottom:6px;">Alphabet (A–Z):</div>
+            <div id="alphabetGallery" class="glyph-picker" style="max-height:85px;"></div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <div class="text-sm text-muted" style="font-weight:600; margin-bottom:6px;">Numbers (0–9) & Punctuation:</div>
+            <div id="symbolGallery" class="glyph-picker" style="max-height:85px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Document Reader -->
+      <div id="tab-reader" class="tab-content">
+        <div class="card">
+          <div class="card-title">
+            <span>Automatic Text & PDF Document Reader</span>
+            <span class="badge" id="readerModeBadge">Sequential Tactile Mode</span>
+          </div>
+
+          <p class="text-sm text-muted">
+            Upload a document, type, or paste text. Characters are translated into tactile patterns and streamed sequentially to the Arduino.
+          </p>
+
+          <!-- File upload & presets -->
+          <div style="display:flex; gap:10px; margin: 14px 0; flex-wrap:wrap; align-items:center;">
+            <input type="file" id="docFileInput" accept=".txt,.pdf,.md,.json,text/plain,application/pdf" style="display:none;">
+            <button id="chooseFileBtn" class="btn btn-secondary">📁 Choose TXT / PDF File</button>
+            <span class="text-sm text-muted">or load sample:</span>
+            <button class="btn btn-sm btn-secondary reader-preset" data-text="HELLO">"HELLO"</button>
+            <button class="btn btn-sm btn-secondary reader-preset" data-text="HAPTIC 4X4">"HAPTIC 4X4"</button>
+            <button class="btn btn-sm btn-secondary reader-preset" data-text="12345">"12345"</button>
+            <button class="btn btn-sm btn-secondary reader-preset" data-text="THE QUICK BROWN FOX">"THE QUICK BROWN FOX"</button>
+          </div>
+
+          <!-- Direct paste box -->
+          <textarea id="readerTextInput" rows="2" placeholder="Or type/paste any custom text here..." style="width:100%; background:#090e17; border:1px solid var(--card-border); color:#fff; border-radius:8px; padding:10px; font-family:monospace; resize:vertical;"></textarea>
+
+          <!-- Reader Big Display Card -->
+          <div class="reader-hero-display" style="margin-top: 14px;">
+            <div>
+              <div class="text-sm text-muted">Current Character</div>
+              <div id="readerHeroChar" class="reader-big-char">—</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="text-sm text-muted">Time to Next</div>
+              <div id="readerCountdown" style="font-size:36px; font-weight:700; color:var(--accent);">3.0s</div>
+            </div>
+          </div>
+
+          <!-- Scrubber -->
+          <div class="text-sm text-muted flex-between">
+            <span>Document Stream Scrubber (Click character to seek):</span>
+            <span id="readerProgressCounter">0 / 0 (0%)</span>
+          </div>
+          <div id="readerScrubber" class="reader-scrubber">
+            <span class="text-muted">No text loaded. Choose a file or type above.</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="readerProgressBar" class="progress-bar-fill"></div>
+          </div>
+
+          <!-- Reader Controls -->
+          <div class="controls-row" style="margin-top: 14px;">
+            <div class="form-group" style="flex:1; min-width:180px;">
+              <label>Reading Pause Duration (<span id="readerDelayVal">3.0</span>s)</label>
+              <input type="range" id="readerDelaySlider" min="0.5" max="5.0" step="0.25" value="3.0">
+            </div>
+
+            <div class="form-group">
+              <label class="switch-container text-sm">
+                <input type="checkbox" id="readerLoopCheckbox"> Loop Text Continuously
+              </label>
+              <label class="switch-container text-sm" style="margin-top:4px;">
+                <input type="checkbox" id="readerVoiceCheckbox"> 🗣️ Speech Audio (TTS)
+              </label>
+            </div>
+          </div>
+
+          <div class="btn-group" style="margin-top:16px;">
+            <button id="readerStartBtn" class="btn btn-success" disabled>▶ Start Reading</button>
+            <button id="readerPauseBtn" class="btn btn-secondary" disabled>⏸ Pause</button>
+            <button id="readerPrevBtn" class="btn btn-secondary" title="Step Previous" disabled>⏮ Step Back</button>
+            <button id="readerNextBtn" class="btn btn-secondary" title="Step Next" disabled>⏭ Step Next</button>
+            <button id="readerStopBtn" class="btn btn-danger" disabled>⏹ Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Hardware Diagnostics -->
+      <div id="tab-diag" class="tab-content">
+        <div class="card">
+          <div class="card-title">
+            <span>Hardware Wiring & Diagnostic Suite</span>
+            <span class="badge">Arduino UNO R4 WiFi</span>
+          </div>
+          <p class="text-sm text-muted">
+            Quickly test individual pins, run sweeps, or isolate breadboard wiring faults without opening the Arduino Serial Monitor.
+          </p>
+
+          <div class="btn-group" style="margin: 14px 0;">
+            <button id="diagSweepBtn" class="btn btn-secondary">⚡ Run LED Sequential Sweep</button>
+            <button id="diagAllOnBtn" class="btn btn-secondary">All LEDs ON (16)</button>
+            <button id="diagAllOffBtn" class="btn btn-secondary">All LEDs OFF</button>
+            <button id="diagRowSweepBtn" class="btn btn-secondary">Row-by-Row Scan</button>
+            <button id="diagColSweepBtn" class="btn btn-secondary">Column-by-Column Scan</button>
+            <button id="diagCheckerBtn" class="btn btn-secondary">Checkerboard</button>
+          </div>
+
+          <div style="margin-top: 18px;">
+            <div class="text-sm text-muted" style="font-weight:600; margin-bottom:8px;">
+              Individual Pin Test (Click to pulse a single physical pin):
+            </div>
+            <div id="individualPinButtons" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;"></div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <div class="text-sm text-muted" style="font-weight:600; margin-bottom:6px;">Official Pinout Reference:</div>
+            <table class="pin-table">
+              <thead>
+                <tr>
+                  <th>Row / Col</th>
+                  <th>LED #</th>
+                  <th>Arduino Pin</th>
+                  <th>Physical Wiring</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Row 1 (Cols 1–4)</td><td>1, 2, 3, 4</td><td><span class="pin-badge">D2</span> <span class="pin-badge">D3</span> <span class="pin-badge">D4</span> <span class="pin-badge">D5</span></td><td>Pin → 220Ω → Anode (+) | Cathode (-) → GND</td></tr>
+                <tr><td>Row 2 (Cols 1–4)</td><td>5, 6, 7, 8</td><td><span class="pin-badge">D6</span> <span class="pin-badge">D7</span> <span class="pin-badge">D8</span> <span class="pin-badge">D9</span></td><td>Pin → 220Ω → Anode (+) | Cathode (-) → GND</td></tr>
+                <tr><td>Row 3 (Cols 1–4)</td><td>9, 10, 11, 12</td><td><span class="pin-badge">D10</span> <span class="pin-badge">D11</span> <span class="pin-badge">D12</span> <span class="pin-badge">D13</span></td><td>Pin → 220Ω → Anode (+) | Cathode (-) → GND</td></tr>
+                <tr><td>Row 4 (Cols 1–4)</td><td>13, 14, 15, 16</td><td><span class="pin-badge">A0</span> <span class="pin-badge">A1</span> <span class="pin-badge">A2</span> <span class="pin-badge">A3</span></td><td>Pin → 220Ω → Anode (+) | Cathode (-) → GND</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Serial Terminal -->
+      <div id="tab-serial" class="tab-content">
+        <div class="card">
+          <div class="card-title">
+            <span>Bidirectional Serial Telemetry</span>
+            <div style="display:flex; gap:8px;">
+              <button id="clearTerminalBtn" class="btn btn-sm btn-secondary">Clear Log</button>
+            </div>
+          </div>
+
+          <div id="serialTerminal" class="terminal-window">
+            <div class="terminal-line"><span class="term-time">[System]</span> <span class="term-info">Serial Monitor Ready. Connect to Arduino to begin logging.</span></div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <input type="text" id="manualSerialInput" placeholder="Send manual command (e.g. 1111000011110000, PING, TEST, CLEAR)" style="flex:1;">
+            <button id="sendManualSerialBtn" class="btn btn-secondary">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Interactive 4x4 LED Display & Matrix Controls -->
+    <div class="display-column">
+      <div class="card display-card">
+        <div class="card-title">
+          <span>Physical 4×4 Display Matrix</span>
+          <span id="liveStatusBadge" class="badge">Live</span>
+        </div>
+
+        <p class="text-sm text-muted" style="margin-bottom: 12px;">
+          Click or tap any cell below to directly toggle that LED pin on the hardware.
+        </p>
+
+        <!-- 4x4 Interactive Grid -->
+        <div class="led-matrix-wrapper">
+          <div id="grid4x4" class="grid-4x4">
+            <!-- 16 cells injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Pattern Readouts -->
+        <div class="pattern-box">
+          <div class="pattern-header">
+            <span>16-Bit Binary Stream</span>
+            <span id="hexReadout" style="color:var(--text-muted);">0x0000</span>
+          </div>
+          <div id="bitPatternText" class="bit-string">0000000000000000</div>
+        </div>
+
+        <!-- Essential Clean Matrix Controls (Invert and rotation clutter removed) -->
+        <div class="btn-group" style="margin-top:14px;">
+          <button id="clearGridBtn" class="btn btn-sm btn-secondary" title="Turn all OFF">Clear All (OFF)</button>
+          <button id="fillGridBtn" class="btn btn-sm btn-secondary" title="Turn all ON">Fill All (ON)</button>
+        </div>
+
+        <div style="margin-top: 16px; border-top: 1px solid var(--card-border); padding-top: 14px;">
+          <div class="flex-between">
+            <label class="switch-container text-sm">
+              <input type="checkbox" id="autoSendCheckbox" checked> Auto-Transmit to Arduino
+            </label>
+            <button id="manualSendBtn" class="btn btn-primary btn-sm" disabled>Send Now 📤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  // --- ARDUINO PIN MAPPING ---
+  // Row 1: D2, D3, D4, D5   (LEDs 1..4)
+  // Row 2: D6, D7, D8, D9   (LEDs 5..8)
+  // Row 3: D10, D11, D12, D13 (LEDs 9..12)
+  // Row 4: A0, A1, A2, A3   (LEDs 13..16)
+  const PIN_NAMES = [
+    "D2",  "D3",  "D4",  "D5",
+    "D6",  "D7",  "D8",  "D9",
+    "D10", "D11", "D12", "D13",
+    "A0",  "A1",  "A2",  "A3"
+  ];
+
+  // --- STATE ---
+  let currentPattern = "0000000000000000";
+  let port = null;
+  let writer = null;
+  let serialReader = null;
+  let isSimMode = false;
+  let autoSend = true;
+  let currentFontMode = "glyph"; // "glyph" or "braille"
+
+  // Reader state
+  let readerText = "";
+  let readerIndex = 0;
+  let readerTimer = null;
+  let readerCountdownTimer = null;
+  let readerRunning = false;
+  let readerPaused = false;
+  let readerDelayMs = 3000;
+
+  // --- GLYPH LIBRARIES ---
+  const GLYPHS_4X4 = {
+    "A": ["0110","1001","1111","1001"],
+    "B": ["1110","1001","1110","1001"],
+    "C": ["0111","1000","1000","0111"],
+    "D": ["1110","1001","1001","1110"],
+    "E": ["1111","1000","1110","1111"],
+    "F": ["1111","1000","1110","1000"],
+    "G": ["0111","1000","1011","0111"],
+    "H": ["1001","1001","1111","1001"],
+    "I": ["1111","0110","0110","1111"],
+    "J": ["0011","0001","1001","0110"],
+    "K": ["1001","1010","1100","1010"],
+    "L": ["1000","1000","1000","1111"],
+    "M": ["1001","1111","1001","1001"],
+    "N": ["1001","1101","1011","1001"],
+    "O": ["0110","1001","1001","0110"],
+    "P": ["1110","1001","1110","1000"],
+    "Q": ["0110","1001","1011","0111"],
+    "R": ["1110","1001","1110","1010"],
+    "S": ["0111","1000","0110","1110"],
+    "T": ["1111","0110","0110","0110"],
+    "U": ["1001","1001","1001","0110"],
+    "V": ["1001","1001","0110","0110"],
+    "W": ["1001","1001","1111","0110"],
+    "X": ["1001","0110","0110","1001"],
+    "Y": ["1001","0110","0110","0110"],
+    "Z": ["1111","0010","0100","1111"],
+    "0": ["0110","1001","1001","0110"],
+    "1": ["0110","1110","0110","1111"],
+    "2": ["1110","0001","0110","1111"],
+    "3": ["1110","0011","0001","1110"],
+    "4": ["1001","1001","1111","0001"],
+    "5": ["1111","1110","0001","1110"],
+    "6": ["0111","1000","1110","1001"],
+    "7": ["1111","0010","0100","0100"],
+    "8": ["0110","1001","0110","1001"],
+    "9": ["0110","1001","0111","0001"],
+    " ": ["0000","0000","0000","0000"],
+    ".": ["0000","0000","0000","0110"],
+    ",": ["0000","0000","0100","1000"],
+    "!": ["0100","0100","0000","0100"],
+    "?": ["1110","0010","0100","0100"],
+    "-": ["0000","1111","0000","0000"],
+    "+": ["0000","0100","1110","0100"],
+    "=": ["0000","1111","1111","0000"],
+    "/": ["0001","0010","0100","1000"],
+    ":": ["0110","0000","0110","0000"],
+    ";": ["0100","0000","0100","1000"],
+    "*": ["0100","1110","0100","1010"],
+    "#": ["0101","1111","0101","1111"],
+    "_": ["0000","0000","0000","1111"],
+    "^": ["0110","1001","0000","0000"]
+  };
+
+  const BRAILLE_DOTS = {
+    "A": [1], "B": [1, 2], "C": [1, 4], "D": [1, 4, 5], "E": [1, 5],
+    "F": [1, 2, 4], "G": [1, 2, 4, 5], "H": [1, 2, 5], "I": [2, 4], "J": [2, 4, 5],
+    "K": [1, 3], "L": [1, 2, 3], "M": [1, 3, 4], "N": [1, 3, 4, 5], "O": [1, 3, 5],
+    "P": [1, 2, 3, 4], "Q": [1, 2, 3, 4, 5], "R": [1, 2, 3, 5], "S": [2, 3, 4],
+    "T": [2, 3, 4, 5], "U": [1, 3, 6], "V": [1, 2, 3, 6], "W": [2, 4, 5, 6],
+    "X": [1, 3, 4, 6], "Y": [1, 3, 4, 5, 6], "Z": [1, 3, 5, 6],
+    "1": [1], "2": [1, 2], "3": [1, 4], "4": [1, 4, 5], "5": [1, 5],
+    "6": [1, 2, 4], "7": [1, 2, 4, 5], "8": [1, 2, 5], "9": [2, 4], "0": [2, 4, 5],
+    " ": [], ",": [2], ";": [2, 3], ":": [2, 5], ".": [2, 5, 6],
+    "!": [2, 3, 5], "?": [2, 3, 6], "-": [3, 6]
+  };
+
+  function getBraillePattern(ch) {
+    const dots = BRAILLE_DOTS[ch] || [];
+    let m = [
+      [0, dots.includes(1)?1:0, dots.includes(4)?1:0, 0],
+      [0, dots.includes(2)?1:0, dots.includes(5)?1:0, 0],
+      [0, dots.includes(3)?1:0, dots.includes(6)?1:0, 0],
+      [0, 0, 0, 0]
+    ];
+    return m.map(row => row.join("")).join("");
+  }
+
+  // --- DOM ELEMENTS ---
+  const grid4x4El = document.getElementById("grid4x4");
+  const bitPatternText = document.getElementById("bitPatternText");
+  const hexReadout = document.getElementById("hexReadout");
+  const statusDot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const statusSubtext = document.getElementById("statusSubtext");
+  const connectBtn = document.getElementById("connectBtn");
+  const disconnectBtn = document.getElementById("disconnectBtn");
+  const pingBtn = document.getElementById("pingBtn");
+  const baudSelect = document.getElementById("baudSelect");
+  const themeSelect = document.getElementById("themeSelect");
+  const simModeCheckbox = document.getElementById("simModeCheckbox");
+  const autoSendCheckbox = document.getElementById("autoSendCheckbox");
+  const manualSendBtn = document.getElementById("manualSendBtn");
+  const protocolAlert = document.getElementById("protocolAlert");
+
+  // Canvas DOM
+  const drawCanvas = document.getElementById("drawCanvas");
+  const canvasCtx = drawCanvas.getContext("2d");
+  const overlayGrid = document.getElementById("overlayGrid");
+  const penSizeSlider = document.getElementById("penSizeSlider");
+  const penSizeVal = document.getElementById("penSizeVal");
+  const penToolBtn = document.getElementById("penToolBtn");
+  const eraserToolBtn = document.getElementById("eraserToolBtn");
+  const clearCanvasBtn = document.getElementById("clearCanvasBtn");
+
+  // Character DOM
+  const directCharInput = document.getElementById("directCharInput");
+  const charTitle = document.getElementById("charTitle");
+  const charDesc = document.getElementById("charDesc");
+  const alphabetGallery = document.getElementById("alphabetGallery");
+  const symbolGallery = document.getElementById("symbolGallery");
+  const fontModeGlyph = document.getElementById("fontModeGlyph");
+  const fontModeBraille = document.getElementById("fontModeBraille");
+
+  // Reader DOM
+  const docFileInput = document.getElementById("docFileInput");
+  const chooseFileBtn = document.getElementById("chooseFileBtn");
+  const readerTextInput = document.getElementById("readerTextInput");
+  const readerScrubber = document.getElementById("readerScrubber");
+  const readerProgressBar = document.getElementById("readerProgressBar");
+  const readerHeroChar = document.getElementById("readerHeroChar");
+  const readerCountdown = document.getElementById("readerCountdown");
+  const readerProgressCounter = document.getElementById("readerProgressCounter");
+  const readerDelaySlider = document.getElementById("readerDelaySlider");
+  const readerDelayVal = document.getElementById("readerDelayVal");
+  const readerLoopCheckbox = document.getElementById("readerLoopCheckbox");
+  const readerVoiceCheckbox = document.getElementById("readerVoiceCheckbox");
+  const readerStartBtn = document.getElementById("readerStartBtn");
+  const readerPauseBtn = document.getElementById("readerPauseBtn");
+  const readerStopBtn = document.getElementById("readerStopBtn");
+  const readerPrevBtn = document.getElementById("readerPrevBtn");
+  const readerNextBtn = document.getElementById("readerNextBtn");
+
+  // Diagnostic & Serial DOM
+  const individualPinButtons = document.getElementById("individualPinButtons");
+  const serialTerminal = document.getElementById("serialTerminal");
+  const manualSerialInput = document.getElementById("manualSerialInput");
+  const sendManualSerialBtn = document.getElementById("sendManualSerialBtn");
+  const clearTerminalBtn = document.getElementById("clearTerminalBtn");
+
+  // --- INITIALIZE UI ---
+  if (location.protocol === "file:") {
+    protocolAlert.style.display = "flex";
+  }
+
+  // Build the 16 LED display cells on the right panel
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement("div");
+    cell.className = "led-cell";
+    cell.dataset.index = i;
+    cell.innerHTML = `
+      <div class="led-light-bulb"></div>
+      <div class="cell-meta">
+        <span>#${i + 1}</span>
+        <span>${PIN_NAMES[i]}</span>
+      </div>
+    `;
+    cell.addEventListener("click", () => {
+      toggleCell(i);
+    });
+    grid4x4El.appendChild(cell);
+  }
+
+  // Build Canvas 4x4 Overlay Guides (Direct visual indicator of pin states)
+  for (let i = 0; i < 16; i++) {
+    const guide = document.createElement("div");
+    guide.className = "grid-guide-cell";
+    guide.id = `guide-cell-${i}`;
+    guide.innerHTML = `
+      <span class="cell-pin-title">${PIN_NAMES[i]}</span>
+      <span class="cell-status-tag" id="tag-${i}">OFF</span>
+    `;
+    overlayGrid.appendChild(guide);
+  }
+
+  // Build Individual Pin Diagnostic Buttons
+  for (let i = 0; i < 16; i++) {
+    const btn = document.createElement("button");
+    btn.className = "btn btn-sm btn-secondary";
+    btn.textContent = `Pulse ${PIN_NAMES[i]}`;
+    btn.addEventListener("click", () => {
+      pulseSinglePin(i);
+    });
+    individualPinButtons.appendChild(btn);
+  }
+
+  // Build Character Galleries
+  function buildCharGalleries() {
+    alphabetGallery.innerHTML = "";
+    symbolGallery.innerHTML = "";
+
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for (const ch of letters) {
+      const chip = document.createElement("div");
+      chip.className = "glyph-chip" + (ch === "A" ? " active" : "");
+      chip.textContent = ch;
+      chip.addEventListener("click", () => selectCharacter(ch));
+      alphabetGallery.appendChild(chip);
+    }
+
+    const symbols = "0123456789.,!?-+=/:;*#";
+    for (const ch of symbols) {
+      const chip = document.createElement("div");
+      chip.className = "glyph-chip";
+      chip.textContent = ch;
+      chip.addEventListener("click", () => selectCharacter(ch));
+      symbolGallery.appendChild(chip);
+    }
+  }
+  buildCharGalleries();
+
+  // Tab Switching
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      const targetId = btn.dataset.tab;
+      document.getElementById(targetId).classList.add("active");
+    });
+  });
+
+  // LED Theme Switching
+  themeSelect.addEventListener("change", (e) => {
+    document.body.dataset.theme = e.target.value;
+  });
+
+  // --- PATTERN & GRID SYNCHRONIZATION ---
+  function updatePatternDisplay(pattern, skipCanvasRedraw) {
+    currentPattern = pattern;
+    bitPatternText.textContent = pattern;
+
+    // Calculate Hex
+    const hex = parseInt(pattern, 2).toString(16).toUpperCase().padStart(4, "0");
+    hexReadout.textContent = "0x" + hex;
+
+    // Update 16 DOM Cells on Right Panel
+    const cells = grid4x4El.children;
+    for (let i = 0; i < 16; i++) {
+      const isOn = pattern[i] === "1";
+      cells[i].classList.toggle("on", isOn);
+
+      // Update Canvas Overlay Guide Cell
+      const guideEl = document.getElementById(`guide-cell-${i}`);
+      const tagEl = document.getElementById(`tag-${i}`);
+      if (guideEl && tagEl) {
+        guideEl.classList.toggle("active-cell", isOn);
+        tagEl.textContent = isOn ? "ON" : "OFF";
+      }
+    }
+
+    // Synchronize Canvas visual state unless instructed
+    if (!skipCanvasRedraw) {
+      redrawCanvasFromPattern(pattern);
+    }
+
+    // Transmit to Arduino
+    if (autoSend && (writer || isSimMode)) {
+      sendPatternToArduino(pattern);
+    }
+  }
+
+  function redrawCanvasFromPattern(pattern) {
+    canvasCtx.fillStyle = "#ffffff";
+    canvasCtx.fillRect(0, 0, 600, 600);
+    canvasCtx.fillStyle = "#1e293b";
+
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const idx = r * 4 + c;
+        if (pattern[idx] === "1") {
+          // Draw solid filled block inside the cell with rounded corners
+          drawRoundedRect(canvasCtx, c * 150 + 10, r * 150 + 10, 130, 130, 16);
+        }
+      }
+    }
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function toggleCell(index) {
+    let arr = currentPattern.split("");
+    arr[index] = arr[index] === "1" ? "0" : "1";
+    updatePatternDisplay(arr.join(""));
+  }
+
+  function setCellState(index, stateBit) {
+    let arr = currentPattern.split("");
+    if (arr[index] !== stateBit) {
+      arr[index] = stateBit;
+      updatePatternDisplay(arr.join(""));
+    }
+  }
+
+  // Clean Matrix Controls (Clutter removed)
+  document.getElementById("clearGridBtn").addEventListener("click", () => {
+    updatePatternDisplay("0000000000000000");
+  });
+
+  document.getElementById("fillGridBtn").addEventListener("click", () => {
+    updatePatternDisplay("1111111111111111");
+  });
+
+  autoSendCheckbox.addEventListener("change", (e) => {
+    autoSend = e.target.checked;
+    manualSendBtn.disabled = autoSend || (!writer && !isSimMode);
+  });
+
+  manualSendBtn.addEventListener("click", () => {
+    sendPatternToArduino(currentPattern);
+  });
+
+  // --- PIN-ACCURATE CANVAS INTERACTION ENGINE ---
+  let isPointerDown = false;
+  let activeTool = "pen"; // "pen" = turn cell ON, "eraser" = turn cell OFF
+  let penSize = 36;
+  let lastPointerCell = -1;
+
+  function initCanvas() {
+    updatePatternDisplay(currentPattern);
+  }
+  initCanvas();
+
+  function getCanvasCoords(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (600 / rect.width);
+    const y = (e.clientY - rect.top) * (600 / rect.height);
+    return { x, y };
+  }
+
+  function getCellIndexFromCoords(x, y) {
+    const col = Math.floor(x / 150);
+    const row = Math.floor(y / 150);
+    if (row >= 0 && row < 4 && col >= 0 && col < 4) {
+      return row * 4 + col;
+    }
+    return -1;
+  }
+
+  function handleCanvasPointer(e) {
+    const { x, y } = getCanvasCoords(e);
+    const cellIdx = getCellIndexFromCoords(x, y);
+
+    if (cellIdx !== -1) {
+      const desiredBit = activeTool === "eraser" ? "0" : "1";
+      setCellState(cellIdx, desiredBit);
+      lastPointerCell = cellIdx;
+    }
+  }
+
+  drawCanvas.addEventListener("pointerdown", (e) => {
+    isPointerDown = true;
+    drawCanvas.setPointerCapture(e.pointerId);
+    handleCanvasPointer(e);
+  });
+
+  drawCanvas.addEventListener("pointermove", (e) => {
+    if (!isPointerDown) return;
+    const { x, y } = getCanvasCoords(e);
+    const cellIdx = getCellIndexFromCoords(x, y);
+    if (cellIdx !== -1 && cellIdx !== lastPointerCell) {
+      handleCanvasPointer(e);
+    }
+  });
+
+  drawCanvas.addEventListener("pointerup", () => {
+    isPointerDown = false;
+    lastPointerCell = -1;
+  });
+
+  drawCanvas.addEventListener("pointercancel", () => {
+    isPointerDown = false;
+    lastPointerCell = -1;
+  });
+
+  penToolBtn.addEventListener("click", () => {
+    activeTool = "pen";
+    penToolBtn.classList.add("active");
+    eraserToolBtn.classList.remove("active");
+  });
+
+  eraserToolBtn.addEventListener("click", () => {
+    activeTool = "eraser";
+    eraserToolBtn.classList.add("active");
+    penToolBtn.classList.remove("active");
+  });
+
+  penSizeSlider.addEventListener("input", (e) => {
+    penSize = Number(e.target.value);
+    penSizeVal.textContent = penSize;
+  });
+
+  clearCanvasBtn.addEventListener("click", () => {
+    updatePatternDisplay("0000000000000000");
+    logSerial("INFO", "Canvas cleared. All pins set to LOW.");
+  });
+
+  // Precise Preset Shapes (Guaranteed exact pins light up every time)
+  document.querySelectorAll(".preset-shape").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const shape = btn.dataset.shape;
+      let pattern = "0000000000000000";
+
+      if (shape === "triangle") {
+        // Top vertex (D3, D4), mid rows (D6, D9, D10, D13), base (A0, A1, A2, A3)
+        pattern = "0110" + "1001" + "1001" + "1111";
+      } else if (shape === "square") {
+        // Border outline
+        pattern = "1111" + "1001" + "1001" + "1111";
+      } else if (shape === "circle") {
+        // Rounded diamond/circle
+        pattern = "0110" + "1001" + "1001" + "0110";
+      } else if (shape === "cross") {
+        // Center cross
+        pattern = "0110" + "1111" + "1111" + "0110";
+      } else if (shape === "diagonal") {
+        // Diagonal line from top-left (D2) to bottom-right (A3)
+        pattern = "1000" + "0100" + "0010" + "0001";
+      }
+
+      updatePatternDisplay(pattern);
+      logSerial("INFO", `Loaded preset shape: ${shape.toUpperCase()} (${pattern})`);
+    });
+  });
+
+  // --- CHARACTER & BRAILLE ENGINE ---
+  function selectCharacter(ch) {
+    ch = (ch || " ").toUpperCase().charAt(0);
+    directCharInput.value = ch;
+
+    // Highlight chip
+    document.querySelectorAll(".glyph-chip").forEach(el => {
+      el.classList.toggle("active", el.textContent === ch);
+    });
+
+    let pattern = "";
+    if (currentFontMode === "braille") {
+      pattern = getBraillePattern(ch);
+      charTitle.textContent = `Braille '${ch}'`;
+      const dots = BRAILLE_DOTS[ch] || [];
+      charDesc.textContent = `Standard 6-Dot Braille Representation (Dots: ${dots.length ? dots.join(", ") : "None"})`;
+    } else {
+      const g = GLYPHS_4X4[ch] || GLYPHS_4X4[" "];
+      pattern = g.join("");
+      charTitle.textContent = `4×4 Glyph '${ch}'`;
+      charDesc.textContent = "Compact 4×4 pixel font representation.";
+    }
+
+    updatePatternDisplay(pattern);
+    return pattern;
+  }
+
+  directCharInput.addEventListener("input", (e) => {
+    if (e.target.value) {
+      selectCharacter(e.target.value);
+    }
+  });
+
+  fontModeGlyph.addEventListener("click", () => {
+    currentFontMode = "glyph";
+    fontModeGlyph.classList.add("active");
+    fontModeBraille.classList.remove("active");
+    fontModeBraille.classList.add("btn-secondary");
+    selectCharacter(directCharInput.value || "A");
+  });
+
+  fontModeBraille.addEventListener("click", () => {
+    currentFontMode = "braille";
+    fontModeBraille.classList.add("active");
+    fontModeBraille.classList.remove("btn-secondary");
+    fontModeGlyph.classList.remove("active");
+    selectCharacter(directCharInput.value || "A");
+  });
+
+  // --- DOCUMENT READER ENGINE ---
+  function normalizeText(txt) {
+    return txt.toUpperCase().replace(/[^A-Z0-9 .,!?-]/g, " ").replace(/\s+/g, " ");
+  }
+
+  function setReaderText(text) {
+    readerText = normalizeText(text);
+    readerIndex = 0;
+    renderScrubber();
+    readerStartBtn.disabled = !readerText.length;
+    readerStopBtn.disabled = true;
+    readerPauseBtn.disabled = true;
+    readerPrevBtn.disabled = true;
+    readerNextBtn.disabled = !readerText.length;
+    readerHeroChar.textContent = readerText.length ? readerText[0] : "—";
+    updateReaderProgress(0);
+  }
+
+  function renderScrubber() {
+    readerScrubber.innerHTML = "";
+    if (!readerText.length) {
+      readerScrubber.innerHTML = `<span class="text-muted">No text loaded. Choose a file or type above.</span>`;
+      return;
+    }
+
+    for (let i = 0; i < readerText.length; i++) {
+      const span = document.createElement("span");
+      span.className = "scrubber-char" + (i === 0 ? " current" : "");
+      span.id = `sc-${i}`;
+      span.textContent = readerText[i] === " " ? "␣" : readerText[i];
+      span.addEventListener("click", () => {
+        jumpToReaderIndex(i);
+      });
+      readerScrubber.appendChild(span);
+    }
+  }
+
+  function updateReaderProgress(idx) {
+    if (!readerText.length) return;
+    const pct = Math.round((idx / readerText.length) * 100);
+    readerProgressBar.style.width = pct + "%";
+    readerProgressCounter.textContent = `${idx + 1} / ${readerText.length} (${pct}%)`;
+
+    // Highlight scrubber char
+    const prev = readerScrubber.querySelector(".current");
+    if (prev) {
+      prev.classList.remove("current");
+      prev.classList.add("passed");
+    }
+    const curr = document.getElementById(`sc-${idx}`);
+    if (curr) {
+      curr.classList.add("current");
+      curr.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }
+
+  function jumpToReaderIndex(targetIdx) {
+    readerIndex = Math.max(0, Math.min(targetIdx, readerText.length - 1));
+    displayCurrentReaderChar();
+  }
+
+  function displayCurrentReaderChar() {
+    if (readerIndex >= readerText.length) {
+      finishReader();
+      return;
+    }
+
+    const ch = readerText[readerIndex];
+    readerHeroChar.textContent = ch === " " ? "␣" : ch;
+    updateReaderProgress(readerIndex);
+
+    // Update 4x4 display
+    const pattern = selectCharacter(ch);
+
+    // Audio Feedback (Text-to-speech)
+    if (readerVoiceCheckbox.checked && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(ch === " " ? "Space" : ch);
+      utterance.rate = 1.2;
+      window.speechSynthesis.speak(utterance);
+    }
+  }
+
+  function readerStep() {
+    if (!readerRunning || readerPaused) return;
+
+    displayCurrentReaderChar();
+
+    // Reset countdown
+    let remaining = readerDelayMs / 1000;
+    readerCountdown.textContent = remaining.toFixed(1) + "s";
+
+    clearInterval(readerCountdownTimer);
+    readerCountdownTimer = setInterval(() => {
+      remaining -= 0.1;
+      if (remaining <= 0) {
+        clearInterval(readerCountdownTimer);
+        readerCountdown.textContent = "0.0s";
+      } else {
+        readerCountdown.textContent = remaining.toFixed(1) + "s";
+      }
+    }, 100);
+
+    readerIndex++;
+    if (readerIndex >= readerText.length) {
+      if (readerLoopCheckbox.checked) {
+        readerIndex = 0;
+        readerTimer = setTimeout(readerStep, readerDelayMs);
+      } else {
+        readerTimer = setTimeout(finishReader, readerDelayMs);
+      }
+    } else {
+      readerTimer = setTimeout(readerStep, readerDelayMs);
+    }
+  }
+
+  function startReader() {
+    if (!readerText.length) return;
+    readerRunning = true;
+    readerPaused = false;
+    readerStartBtn.disabled = true;
+    readerPauseBtn.disabled = false;
+    readerPauseBtn.textContent = "⏸ Pause";
+    readerStopBtn.disabled = false;
+    readerPrevBtn.disabled = false;
+    readerNextBtn.disabled = false;
+
+    if (readerIndex >= readerText.length) readerIndex = 0;
+    readerStep();
+  }
+
+  function pauseReader() {
+    if (!readerRunning) return;
+    if (readerPaused) {
+      readerPaused = false;
+      readerPauseBtn.textContent = "⏸ Pause";
+      readerStep();
+    } else {
+      readerPaused = true;
+      clearTimeout(readerTimer);
+      clearInterval(readerCountdownTimer);
+      readerPauseBtn.textContent = "▶ Resume";
+    }
+  }
+
+  function stopReader() {
+    clearTimeout(readerTimer);
+    clearInterval(readerCountdownTimer);
+    readerRunning = false;
+    readerPaused = false;
+    readerIndex = 0;
+    readerCountdown.textContent = (readerDelayMs / 1000).toFixed(1) + "s";
+    readerStartBtn.disabled = false;
+    readerPauseBtn.disabled = true;
+    readerStopBtn.disabled = true;
+    readerPrevBtn.disabled = true;
+    updateReaderProgress(0);
+    readerHeroChar.textContent = readerText.length ? readerText[0] : "—";
+  }
+
+  function finishReader() {
+    clearTimeout(readerTimer);
+    clearInterval(readerCountdownTimer);
+    readerRunning = false;
+    readerPaused = false;
+    readerCountdown.textContent = "Done";
+    readerStartBtn.disabled = false;
+    readerPauseBtn.disabled = true;
+    readerStopBtn.disabled = true;
+    logSerial("INFO", "Document reading completed.");
+  }
+
+  readerStartBtn.addEventListener("click", startReader);
+  readerPauseBtn.addEventListener("click", pauseReader);
+  readerStopBtn.addEventListener("click", stopReader);
+
+  readerNextBtn.addEventListener("click", () => {
+    if (readerIndex < readerText.length - 1) {
+      readerIndex++;
+      displayCurrentReaderChar();
+    }
+  });
+
+  readerPrevBtn.addEventListener("click", () => {
+    if (readerIndex > 0) {
+      readerIndex--;
+      displayCurrentReaderChar();
+    }
+  });
+
+  readerDelaySlider.addEventListener("input", (e) => {
+    readerDelayMs = Number(e.target.value) * 1000;
+    readerDelayVal.textContent = e.target.value;
+  });
+
+  // Direct Text Input Handler
+  readerTextInput.addEventListener("input", (e) => {
+    setReaderText(e.target.value);
+  });
+
+  // Sample Text Presets
+  document.querySelectorAll(".reader-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      readerTextInput.value = btn.dataset.text;
+      setReaderText(btn.dataset.text);
+    });
+  });
+
+  // File Upload Handler (TXT & PDF)
+  chooseFileBtn.addEventListener("click", () => docFileInput.click());
+  docFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    logSerial("INFO", `Loading file: ${file.name} (${Math.round(file.size / 1024)} KB)`);
+
+    try {
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        const text = await extractPdfText(file);
+        readerTextInput.value = text;
+        setReaderText(text);
+        logSerial("INFO", `Extracted ${text.length} characters from PDF.`);
+      } else {
+        const text = await file.text();
+        readerTextInput.value = text;
+        setReaderText(text);
+        logSerial("INFO", `Loaded ${text.length} characters from text file.`);
+      }
+    } catch (err) {
+      logSerial("ERR", `File extraction failed: ${err.message}`);
+      alert(`Could not extract document: ${err.message}. You can paste text directly into the box.`);
+    }
+  });
+
+  async function extractPdfText(file) {
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        s.onload = () => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          resolve();
+        };
+        s.onerror = () => reject(new Error("PDF.js library could not be loaded. Please ensure you have internet access or use a TXT file."));
+        document.head.appendChild(s);
+      });
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+    let fullText = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageStrings = textContent.items.map(item => item.str || "");
+      fullText += pageStrings.join(" ") + " ";
+    }
+    return fullText;
+  }
+
+  // --- HARDWARE DIAGNOSTICS SUITE ---
+  function pulseSinglePin(index) {
+    let p = "0000000000000000".split("");
+    p[index] = "1";
+    updatePatternDisplay(p.join(""));
+    logSerial("TX", `Diagnostics: Pulsed ${PIN_NAMES[index]} (Bit ${index})`);
+  }
+
+  document.getElementById("diagSweepBtn").addEventListener("click", async () => {
+    logSerial("INFO", "Running diagnostic LED sequential sweep (D2 -> A3)...");
+    for (let i = 0; i < 16; i++) {
+      pulseSinglePin(i);
+      await new Promise(r => setTimeout(r, 120));
+    }
+    updatePatternDisplay("0000000000000000");
+  });
+
+  document.getElementById("diagAllOnBtn").addEventListener("click", () => {
+    updatePatternDisplay("1111111111111111");
+  });
+
+  document.getElementById("diagAllOffBtn").addEventListener("click", () => {
+    updatePatternDisplay("0000000000000000");
+  });
+
+  document.getElementById("diagRowSweepBtn").addEventListener("click", async () => {
+    const rows = [
+      "1111000000000000",
+      "0000111100000000",
+      "0000000011110000",
+      "0000000000001111"
+    ];
+    for (const r of rows) {
+      updatePatternDisplay(r);
+      await new Promise(res => setTimeout(res, 250));
+    }
+    updatePatternDisplay("0000000000000000");
+  });
+
+  document.getElementById("diagColSweepBtn").addEventListener("click", async () => {
+    const cols = [
+      "1000100010001000",
+      "0100010001000100",
+      "0010001000100010",
+      "0001000100010001"
+    ];
+    for (const c of cols) {
+      updatePatternDisplay(c);
+      await new Promise(res => setTimeout(res, 250));
+    }
+    updatePatternDisplay("0000000000000000");
+  });
+
+  document.getElementById("diagCheckerBtn").addEventListener("click", async () => {
+    for (let i = 0; i < 4; i++) {
+      updatePatternDisplay("1010010110100101");
+      await new Promise(res => setTimeout(res, 250));
+      updatePatternDisplay("0101101001011010");
+      await new Promise(res => setTimeout(res, 250));
+    }
+    updatePatternDisplay("0000000000000000");
+  });
+
+  // --- SERIAL COMMUNICATION ENGINE ---
+  function logSerial(type, msg) {
+    const line = document.createElement("div");
+    line.className = "terminal-line";
+    const time = new Date().toLocaleTimeString();
+
+    let tagClass = "term-info";
+    if (type === "TX") tagClass = "term-tx";
+    else if (type === "RX") tagClass = "term-rx";
+    else if (type === "ERR") tagClass = "term-err";
+
+    line.innerHTML = `<span class="term-time">[${time}]</span> <span class="${tagClass}">[${type}]</span> <span>${escapeHtml(msg)}</span>`;
+    serialTerminal.appendChild(line);
+    serialTerminal.scrollTop = serialTerminal.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  clearTerminalBtn.addEventListener("click", () => {
+    serialTerminal.innerHTML = "";
+  });
+
+  async function connectArduino() {
+    if (!window.isSecureContext) {
+      alert("Web Serial requires a secure context (http://localhost:8000/ or https://). Direct file:// links are blocked by browser security. Run start_server.bat to start.");
+      return;
+    }
+
+    if (!("serial" in navigator)) {
+      alert("Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge on Windows.");
+      return;
+    }
+
+    try {
+      setConnectionStatus("busy", "Selecting Serial Port...", "Choose your Arduino UNO R4 WiFi from the prompt.");
+      const selectedPort = await navigator.serial.requestPort();
+
+      const baudRate = Number(baudSelect.value);
+      setConnectionStatus("busy", "Opening Port...", `Connecting at ${baudRate} baud.`);
+
+      // Clean up old connections
+      if (writer) {
+        try { writer.releaseLock(); } catch(e){}
+        writer = null;
+      }
+      if (port) {
+        try { await port.close(); } catch(e){}
+        port = null;
+      }
+
+      port = selectedPort;
+      await port.open({ baudRate: baudRate });
+
+      if (!port.writable) {
+        throw new Error("Port opened but writable stream is unavailable.");
+      }
+
+      writer = port.writable.getWriter();
+
+      // Start serial background listener
+      startSerialReadLoop();
+
+      setConnectionStatus("connected", "Connected to Arduino", `UNO R4 WiFi Online (${baudRate} baud)`);
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+      pingBtn.disabled = false;
+      manualSendBtn.disabled = false;
+
+      logSerial("INFO", `Port connected successfully at ${baudRate} baud.`);
+
+      // Send initial pattern to sync hardware
+      sendPatternToArduino(currentPattern);
+
+    } catch (err) {
+      console.error(err);
+      if (err.name === "NotFoundError") {
+        setConnectionStatus("disconnected", "No Device Selected", "Port chooser cancelled.");
+        logSerial("INFO", "Port selection was cancelled by user.");
+      } else if (err.name === "InvalidStateError" || /busy|in use|access/i.test(err.message)) {
+        setConnectionStatus("error", "Port Busy or Locked", "Ensure Arduino IDE Serial Monitor is closed.");
+        logSerial("ERR", "Port is locked! Close Arduino IDE Serial Monitor or other serial terminals and retry.");
+        alert("Port Busy! Please ensure the Arduino IDE Serial Monitor and Serial Plotter are closed before connecting.");
+      } else {
+        setConnectionStatus("error", "Connection Error", err.message);
+        logSerial("ERR", `Connection error: ${err.message}`);
+      }
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      pingBtn.disabled = true;
+    }
+  }
+
+  async function startSerialReadLoop() {
+    let buffer = "";
+    try {
+      while (port && port.readable) {
+        serialReader = port.readable.getReader();
+        while (true) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          if (value) {
+            const chunk = new TextDecoder().decode(value);
+            buffer += chunk;
+            const lines = buffer.split(/[\r\n]+/);
+            buffer = lines.pop();
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed) {
+                logSerial("RX", trimmed);
+                if (trimmed.startsWith("PATTERN:")) {
+                  statusSubtext.textContent = `Arduino Verified: ${trimmed}`;
+                } else if (trimmed === "PONG") {
+                  statusSubtext.textContent = `Ping acknowledged (PONG)`;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name !== "NetworkError" && err.name !== "AbortError") {
+        logSerial("ERR", `Read loop exception: ${err.message}`);
+      }
+    } finally {
+      if (serialReader) {
+        try { serialReader.releaseLock(); } catch(e){}
+        serialReader = null;
+      }
+    }
+  }
+
+  async function disconnectArduino() {
+    stopReader();
+    try {
+      if (writer) {
+        writer.releaseLock();
+        writer = null;
+      }
+      if (serialReader) {
+        await serialReader.cancel();
+        serialReader.releaseLock();
+        serialReader = null;
+      }
+      if (port) {
+        await port.close();
+        port = null;
+      }
+    } catch (err) {
+      console.warn("Disconnect cleanup:", err);
+    }
+
+    setConnectionStatus("disconnected", "Arduino Disconnected", "Serial port released.");
+    connectBtn.disabled = false;
+    disconnectBtn.disabled = true;
+    pingBtn.disabled = true;
+    manualSendBtn.disabled = true;
+    logSerial("INFO", "Serial port disconnected.");
+  }
+
+  async function sendPatternToArduino(pattern) {
+    if (isSimMode) {
+      logSerial("TX", `[SIM] Pattern: ${pattern}`);
+      return;
+    }
+
+    if (!writer) return;
+
+    try {
+      const data = new TextEncoder().encode(pattern + "\n");
+      await writer.write(data);
+      logSerial("TX", pattern);
+    } catch (err) {
+      logSerial("ERR", `Transmit failed: ${err.message}`);
+    }
+  }
+
+  async function sendRawSerial(str) {
+    if (isSimMode) {
+      logSerial("TX", `[SIM] Raw: ${str}`);
+      return;
+    }
+    if (!writer) {
+      alert("Please connect the Arduino first or enable Virtual Simulation Mode.");
+      return;
+    }
+    try {
+      await writer.write(new TextEncoder().encode(str + "\n"));
+      logSerial("TX", str);
+    } catch (err) {
+      logSerial("ERR", `Send error: ${err.message}`);
+    }
+  }
+
+  sendManualSerialBtn.addEventListener("click", () => {
+    const val = manualSerialInput.value.trim();
+    if (val) {
+      sendRawSerial(val);
+      manualSerialInput.value = "";
+    }
+  });
+
+  manualSerialInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      sendManualSerialBtn.click();
+    }
+  });
+
+  pingBtn.addEventListener("click", () => {
+    sendRawSerial("PING");
+  });
+
+  connectBtn.addEventListener("click", connectArduino);
+  disconnectBtn.addEventListener("click", disconnectArduino);
+
+  function setConnectionStatus(state, title, sub) {
+    statusDot.className = "dot " + (state === "connected" ? "connected" : state === "busy" ? "busy" : state === "error" ? "error" : "");
+    statusText.textContent = title;
+    statusSubtext.textContent = sub;
+  }
+
+  // Simulation Mode Toggle
+  simModeCheckbox.addEventListener("change", (e) => {
+    isSimMode = e.target.checked;
+    if (isSimMode) {
+      setConnectionStatus("connected", "Virtual Simulation Active", "Software mock mode enabled without physical hardware.");
+      manualSendBtn.disabled = false;
+      readerStartBtn.disabled = !readerText.length;
+      logSerial("INFO", "Simulation Mode activated: all pattern updates will emulate Arduino responses.");
+    } else {
+      if (!writer) {
+        setConnectionStatus("disconnected", "Arduino Not Connected", "Ready to connect via USB Serial (9600 baud)");
+        manualSendBtn.disabled = true;
+        readerStartBtn.disabled = true;
+      }
+    }
+  });
+
+  // Default character on boot
+  selectCharacter("A");
+
+})();
+</script>
+</body>
+</html>
